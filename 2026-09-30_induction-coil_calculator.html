@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Калькулятор индукционной термообработки труб</title>
+<style>
+:root{
+  --bg:#eef1f5; --panel:#ffffff; --ink:#1d2b3a; --muted:#5d6b7a;
+  --steel:#1e3a5f; --steel-2:#2c5282; --accent:#b45309; --accent-soft:#fdf3e7;
+  --line:#d8dee6; --ok:#2e7d4f; --warn-bg:#fff7e0; --warn-line:#e6c35c; --warn-ink:#7a5b00;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+body{
+  font-family:"Segoe UI", system-ui, -apple-system, sans-serif;
+  background:var(--bg); color:var(--ink); line-height:1.5; padding:24px 16px 60px;
+}
+.wrap{max-width:1080px; margin:0 auto;}
+header{margin-bottom:22px;}
+h1{font-size:1.45rem; color:var(--steel); letter-spacing:.01em;}
+.sub{color:var(--muted); font-size:.92rem; margin-top:4px;}
+.grid{display:grid; grid-template-columns:340px 1fr; gap:20px; align-items:start;}
+@media(max-width:800px){.grid{grid-template-columns:1fr;}}
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:20px;}
+.panel h2{font-size:.85rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:14px;}
+label{display:block; font-size:.85rem; font-weight:600; margin:14px 0 4px; color:var(--steel);}
+label:first-of-type{margin-top:0;}
+select,input[type=number]{
+  width:100%; padding:9px 10px; font-size:.95rem; border:1px solid var(--line);
+  border-radius:8px; background:#fbfcfe; color:var(--ink);
+}
+select:focus,input:focus{outline:2px solid var(--steel-2); outline-offset:0;}
+.hint{font-size:.78rem; color:var(--muted); margin-top:3px;}
+.freq{display:flex; flex-wrap:wrap; gap:8px; margin-top:6px;}
+.freq button{
+  flex:1 1 auto; padding:8px 10px; border:1px solid var(--line); border-radius:8px;
+  background:#fbfcfe; cursor:pointer; font-size:.88rem; color:var(--ink);
+}
+.freq button.on{background:var(--steel); color:#fff; border-color:var(--steel); font-weight:600;}
+.result-card{border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin-bottom:14px;}
+.result-card h3{font-size:1rem; color:var(--steel); margin-bottom:10px; display:flex; align-items:center; gap:8px;}
+.kv{display:grid; grid-template-columns:1fr 1fr; gap:8px 18px; font-size:.92rem;}
+.kv .k{color:var(--muted);}
+.kv .v{font-weight:600; text-align:right;}
+.kv .v.big{font-size:1.15rem; color:var(--accent);}
+@media(max-width:520px){.kv{grid-template-columns:1fr;} .kv .v{text-align:left;}}
+.big-turn{
+  font-size:2.2rem; font-weight:700; color:var(--accent); line-height:1.1;
+}
+.big-turn small{font-size:.95rem; font-weight:500; color:var(--muted);}
+.note{
+  background:var(--accent-soft); border-left:3px solid var(--accent);
+  padding:8px 12px; border-radius:0 8px 8px 0; font-size:.86rem; margin-top:10px; color:#5b3a06;
+}
+.warnings{margin-bottom:14px;}
+.warn{
+  background:var(--warn-bg); border:1px solid var(--warn-line); color:var(--warn-ink);
+  padding:8px 12px; border-radius:8px; font-size:.86rem; margin-bottom:8px;
+}
+table.mini{width:100%; border-collapse:collapse; font-size:.86rem; margin-top:8px;}
+table.mini th, table.mini td{border:1px solid var(--line); padding:6px 8px; text-align:center;}
+table.mini th{background:#f2f5f9; font-weight:600; color:var(--steel);}
+footer{margin-top:26px; font-size:.8rem; color:var(--muted); border-top:1px solid var(--line); padding-top:14px;}
+.print-btn{
+  margin-top:18px; width:100%; padding:10px; border:1px solid var(--steel);
+  background:var(--steel); color:#fff; border-radius:8px; cursor:pointer; font-size:.92rem;
+}
+.print-btn:hover{background:var(--steel-2);}
+@media print{
+  body{background:#fff; padding:0;}
+  .panel{border:none; padding:0;}
+  .print-btn{display:none;}
+  .grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Калькулятор индукционной термообработки стыков труб</h1>
+  <div class="sub">По РД 153-34.1-003-01 (РТМ-1с): раздел 17, таблицы 17.1, 17.3, 17.5 и 17.6</div>
+</header>
+
+<div class="grid">
+
+  <div class="panel">
+    <h2>Исходные данные</h2>
+
+    <label for="mat">Материал (труба или сочетание)</label>
+    <select id="mat"></select>
+
+    <label for="dia">Наружный диаметр Д<sub>н</sub>, мм</label>
+    <input type="number" id="dia" min="50" max="1100" step="1" value="325">
+    <div class="hint">Диапазон таблицы РД: 108–1020 мм</div>
+
+    <label for="wal">Толщина стенки S, мм</label>
+    <input type="number" id="wal" min="2" max="110" step="0.5" value="15">
+    <div class="hint">Диапазон таблицы 17.5: 11–100 мм</div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px">
+      <div>
+        <label for="machP">Мощность машины, кВт</label>
+        <input type="number" id="machP" min="1" max="500" step="1" value="50">
+      </div>
+      <div>
+        <label for="machI">Входной ток машины, А</label>
+        <input type="number" id="machI" min="1" max="1000" step="1" value="100">
+      </div>
+    </div>
+    <div class="hint">Вставлены параметры вашей машины термообработки (отжига): 50 кВт, входной ток 100 А. Если поменяете машину — поправьте числа здесь.</div>
+
+    <label for="coolRate">Скорость охлаждения (по техкарте), °С/ч</label>
+    <input type="number" id="coolRate" min="10" max="2000" step="10" placeholder="оставьте пустым, если не задана">
+    <div class="hint">РД скорость охлаждения в градусах в час не задаёт — её вписывает технолог в техкарте (форма П27). Если число задано, калькулятор посчитает время охлаждения до 300 °C.</div>
+
+    <label>Частота тока источника</label>
+    <div class="freq" id="freq">
+      <button data-f="50" class="on">50 Гц</button>
+      <button data-f="2400">2400 Гц</button>
+      <button data-f="8000">8000 Гц</button>
+      <button data-f="1200">ИТ-100, 1200 Гц</button>
+    </div>
+
+    <div class="note" id="matHint" style="margin-top:16px">Если этот текст не меняется на название марки стали, расчёт не запустился: файл открыт во встроенном просмотре мессенджера. Откройте его в браузере (Safari, Chrome) — и всё заработает.</div>
+
+    <button class="print-btn" onclick="window.print()">Печать расчёта</button>
+  </div>
+
+  <div class="panel">
+    <h2>Результат расчёта</h2>
+    <div id="out" class="warn">Расчёт не показан? Значит, файл открыт в предпросмотре мессенджера или просмотрщике без JavaScript. Сохраните файл и откройте его в браузере (Safari, Chrome, Edge) — калькулятор заработает.</div>
+  </div>
+
+</div>
+
+<footer>
+  Источник: РД 153-34.1-003-01 «Сварка, термообработка и контроль трубных систем котлов и трубопроводов
+  при монтаже и ремонте энергетического оборудования», табл. 17.1 (режимы ТО), 17.3 (время нагрева),
+  17.5 (гибкие неохлаждаемые индукторы), 17.6 (инверторы ИТ-100).<br>
+  Значения ориентированные — по РД их назначает технология производства работ; при отклонении от
+  диапазонов таблиц фактический режим подтверждается у технолога.
+</footer>
+</div>
+
+<script>
+"use strict";
+/* ================= ДАННЫЕ: табл. 17.1 — режимы термообработки ================= */
+/* rows: [minIncluded, maxExcluded, temperRange, holdHours, noteKey] */
+const MATS = [
+ {id:"carb", group:"Углеродистые стали", label:"10, 20, 15Л, 20Л, 15ГС, 16ГС, 25Л, 20ГСЛ (шов углеродистый)",
+  alloy:false, rows:[
+   {a:0,b:36, none:true, note:"По табл. 17.1 ТО назначается при стенке свыше 36 мм. При подогреве до ≥100 °C допускается без ТО до 40 мм, кроме стыков с литьём 25Л и 20ГСЛ (прим. 4); стыки поверхностей нагрева до 11 мм — ТО не обязательна (п. 17.2.2а)."},
+   {a:36,b:60, t:"560–590", h:1},
+   {a:60,b:999, t:"560–590", h:2}]},
+
+ {id:"kmm", group:"Хромомолибденовые стали", label:"12МХ, 15ХМ, 20ХМЛ (шов 09МХ, 09Х1М)",
+  alloy:true, rows:[
+   {a:0,b:10, none:true, note:"Толщина до 10 мм ниже диапазона табл. 17.1. По п. 17.2.2а для труб поверхностей нагрева до 11 мм включительно ТО не обязательна."},
+   {a:10,b:20, t:"700–730", h:1},
+   {a:20,b:45, t:"700–730", h:2},
+   {a:45,b:999, t:"700–730", h:3}]},
+
+ {id:"xm", group:"Хромомолибденовые стали", label:"12Х1МФ (шов 09Х1М)",
+  alloy:true, rows:[
+   {a:0,b:10, none:true, note:"Толщина до 10 мм ниже диапазона табл. 17.1. По п. 17.2.2г допустима без ТО для стыков до 219 мм из 12МХ/15ХМ/12Х1МФ (электроды Э-09Х1М, до 510 °C, стенка ≤18 мм)."},
+   {a:10,b:20, t:"710–740", h:1},
+   {a:20,b:45, t:"710–740", h:2},
+   {a:45,b:999, t:"710–740", h:3}]},
+
+ {id:"hmf", group:"Хромомолибденованадиевые стали", label:"12Х1МФ, 15Х1М1Ф, 20ХМФЛ, 15Х1М1ФЛ (шов 09Х1МФ)",
+  alloy:true, rows:[
+   {a:0,b:10, none:true, note:"Толщина до 10 мм ниже диапазона табл. 17.1. Для труб Дн более 219 мм ТО обязательна при стенке уже от 8 мм (прим. 5)."},
+   {a:10,b:20, t:"720–750", h:1, extra:"Для стали 12Х1МФ с литьём 20ХМФЛ/15Х1М1ФЛ (и 15Х1М1Ф с литьём 15Х1М1ФЛ) при стенке ≤20 мм выдержка — 1,5 ч (прим. 6)."},
+   {a:20,b:60, t:"720–750", h:3},
+   {a:60,b:999, t:"720–750", h:5}]},
+
+ {id:"cifb", group:"Хромомолибденованадиевые стали", label:"15Х1М1Ф-ЦЛ, центробежнолитые (шов 09Х1МФ)",
+  alloy:true, rows:[
+   {a:0,b:20, none:true, note:"Толщина до 20 мм ниже диапазона табл. 17.1."},
+   {a:20,b:999, t:"735–765", h:5, extra:"Нагрев до температуры отпуска не более 200 °С/ч, в интервале 600–700 °C — не менее 100 °С/ч (прим. 7)."}]},
+
+ {id:"10x9", group:"Стали нового поколения", label:"10Х9МФБ (ДИ-82Ш) с 10Х9НМФ, 10Х9ГСНМФ",
+  alloy:true, rows:[
+   {a:0,b:4, none:true, note:"Данные табл. 17.1 дают режим для стенки 4–6 мм; при другой толщине режим назначает технолог."},
+   {a:4,b:6, t:"750", h:0.5, single:true},
+   {a:6,b:999, none:true, same:true, note:"Данные табл. 17.1 дают режим для стенки 4–6 мм; при другой толщине режим назначает технолог."}]},
+
+ {id:"carb+kmm", group:"Сочетания сталей", label:"10/20/15ГС/16ГС… с 12МХ, 15ХМ (шов Э50А, 09Х1М, 09МХ)",
+  alloy:true, rows:[
+   {a:0,b:20, none:true, note:"По прим. 8 при электродах Э50А ТО производится при толщине более 20 мм (см. также п. 17.2.2е)."},
+   {a:20,b:60, t:"690–720", h:2},
+   {a:60,b:999, t:"690–720", h:3}]},
+
+ {id:"carb+hmf", group:"Сочетания сталей", label:"10/20/15ГС/16ГС… с 12Х1МФ, 15Х1М1Ф и подобными",
+  alloy:true, rows:[
+   {a:0,b:10, none:true, note:"Толщина до 10 мм ниже диапазона табл. 17.1."},
+   {a:10,b:20, t:"700–730", h:1},
+   {a:20,b:45, t:"700–730", h:2},
+   {a:45,b:999, t:"700–730", h:3}]},
+
+ {id:"kmm+xm", group:"Сочетания сталей", label:"12МХ, 15ХМ, 20ХМЛ с 12Х1МФ (шов 09Х1М, 09МХ)",
+  alloy:true, rows:[
+   {a:0,b:10, none:true, note:"Толщина до 10 мм ниже диапазона табл. 17.1."},
+   {a:10,b:20, t:"710–740", h:1},
+   {a:20,b:45, t:"710–740", h:2},
+   {a:45,b:999, t:"710–740", h:3}]},
+
+ {id:"kmm+hmf", group:"Сочетания сталей", label:"12МХ, 15ХМ, 20ХМЛ с 20ХМФЛ, 15Х1М1Ф (шов 09Х1М, 09МХ)",
+  alloy:true, rows:[
+   {a:0,b:10, none:true, note:"Толщина до 10 мм ниже диапазона табл. 17.1."},
+   {a:10,b:20, t:"710–740", h:1},
+   {a:20,b:60, t:"710–740", h:3},
+   {a:60,b:999, t:"710–740", h:5}]},
+
+ {id:"xm+10x9", group:"Сочетания сталей", label:"12Х1МФ с 10Х9МФБ (ДИ-82Ш)",
+  alloy:true, rows:[
+   {a:0,b:4, none:true, note:"Данные табл. 17.1 дают режим для стенки 4–6 мм; при другой толщине режим назначает технолог."},
+   {a:4,b:6, t:"730", h:0.5, single:true},
+   {a:6,b:999, none:true, same:true, note:"Данные табл. 17.1 дают режим для стенки 4–6 мм; при другой толщине режим назначает технолог."}]}
+];
+
+/* ================= ДАННЫЕ: табл. 17.5 — гибкие неохлаждаемые индукторы ================= */
+/* width мм; turns: массивы [50,2400,8000]; sect — сечение витка (null = в таблице не указано);
+   U/V — напряжение, I — рабочий ток, P — потребляемая мощность, C — ёмкость батареи [2400,8000] */
+const COIL = [
+ {d:[108,168], s:[ [11,36,{width:[250,400],turns:[[8,12],[10,14],[10,16]],sect:[[150,185],[50,70],[35,50]],U:[[15,20],[55,85],[80,120]],I:[[700,900],[160,180],[100,120]],P:[8,15],C:[[200,300],[40,60]]}] ]},
+ {d:[194,245], s:[
+   [11,28,{width:[300,350],turns:[[8,10],[10,12],[12,14]],sect:[[185,240],[50,70],[50,70]],U:[[20,25],[90,100],[130,150]],I:[[800,950],[170,190],[110,125]],P:[15,18],C:[[160,200],[30,35]]}],
+   [30,45,{width:[350,450],turns:[[10,12],[12,16],[14,18]],sect:null,U:[[25,30],[100,120],[150,170]],I:[[950,1100],[190,200],[125,140]],P:[18,25],C:[[200,250],[35,45]]}] ]},
+ {d:[273,377], s:[
+   [11,20,{width:[350,400],turns:[[8,10],[12,14],[14,16]],sect:[[185,240],[70,95],[50,70]],U:[[25,30],[120,135],[170,180]],I:[[900,1000],[170,185],[120,135]],P:[18,22],C:[[110,120],[20,25]]}],
+   [25,45,{width:[400,500],turns:[[10,12],[14,16],[16,18]],sect:null,U:[[30,35],[135,145],[180,195]],I:[[1000,1100],[185,200],[135,150]],P:[22,27],C:[[120,135],[25,35]]}],
+   [50,60,{width:[500,550],turns:[[12,14],[16,18],[18,20]],sect:null,U:[[35,40],[145,160],[195,220]],I:[[1100,1200],[200,220],[150,160]],P:[27,35],C:[[135,150],[35,40]]}] ]},
+ {d:[426,530], s:[
+   [16,36,{width:[400,450],turns:[[8,10],[14,16],[16,18]],sect:[[240],[95,120],[70,95]],U:[[30,35],[150,165],[230,250]],I:[[1100,1200],[190,210],[130,140]],P:[20,30],C:[[80,90],[18,22]]}],
+   [40,70,{width:[450,500],turns:[[10,12],[16,18],[18,20]],sect:null,U:[[35,40],[165,180],[250,270]],I:[[1200,1300],[210,220],[140,155]],P:[30,40],C:[[90,100],[22,26]]}],
+   [80,100,{width:[500,600],turns:[[12,14],[18,20],[20,22]],sect:null,U:[[40,50],[180,200],[270,300]],I:[[1300,1400],[220,240],[155,170]],P:[40,50],C:[[100,110],[26,30]]}] ]},
+ {d:[630,1020], s:[
+   [20,45,{width:[450,500],turns:[[10,12],[14,16],[16,18]],sect:[[240],[95,120],[70,95]],U:[[40,50],[190,210],[300,330]],I:[[1300,1400],[230,250],[150,160]],P:[30,35],C:[[60,70],[12,15]]}],
+   [50,65,{width:[500,600],turns:[[12,14],[16,18],[18,20]],sect:null,U:[[50,60],[210,230],[330,360]],I:[[1400,1500],[250,270],[160,180]],P:[35,50],C:[[70,85],[15,20]]}],
+   [70,90,{width:[600,650],turns:[[14,16],[18,20],[20,22]],sect:null,U:[[60,70],[230,260],[360,400]],I:[[1500,1600],[270,300],[180,200]],P:[50,65],C:[[85,100],[20,25]]}] ]}
+];
+
+/* ================= ДАННЫЕ: табл. 17.6 — инверторы ИТ-100 (1200 Гц) ================= */
+/* u — напряжение сети, i — ток сети, питающей инвертор */
+const IT100 = [
+ {d:133, s:15, turns:8,   u:165, i:60},
+ {d:219, s:40, turns:12,  u:160, i:100},
+ {d:273, s:50, turns:10,  u:170, i:95},
+ {d:325, s:60, turns:16,  u:155, i:155},
+ {d:426, s:96, turns:16,  u:160, i:190},
+ {d:630, s:25, turns:14,  u:150, i:100},
+ {d:920, s:35, turns:14.5,u:205, i:300}
+];
+
+/* ================= ДАННЫЕ: табл. 17.3 — время нагрева до отпуска, мин ================ */
+/* по толщине: [до, время50Гц, времяСЧ] */
+const HEAT = [
+ [20,20,30],[25,30,50],[30,30,50],[35,50,80],[45,50,80],[60,80,100],[80,100,120],[100,130,150]
+];
+
+/* ================= СЛУЖЕБНЫЕ ================= */
+function rng(r){ return (r[0]===r[1]) ? String(r[0]) : r[0] + "–" + r[1]; }
+function edgeDist(r, v){ return Math.max(r[0]-v, 0) + Math.max(v-r[1], 0); }
+function pickNearest(buckets, v){ // ближайший диапазон по краям значений
+  let best=null, dist=1e9;
+  for(const b of buckets){ const dd=edgeDist(b.d, v); if(dd<dist){dist=dd; best=b;} }
+  return best;
+}
+function pickNearestSub(rows, v){
+  let best=null, dist=1e9;
+  for(const [a,b,cfg] of rows){ const dd=edgeDist([a,b], v); if(dd<dist){dist=dd; best=[a,b,cfg];} }
+  return best;
+}
+
+/* ================= РАСЧЁТ ================= */
+function compute(){
+  const mid = document.getElementById("mat").value;
+  const D = parseFloat(document.getElementById("dia").value);
+  const S = parseFloat(document.getElementById("wal").value);
+  const f = document.getElementById("freq").querySelector(".on").dataset.f;
+  const mat = MATS.find(m=>m.id===mid);
+  const machP = parseFloat(document.getElementById("machP").value) || 0;
+  const machI = parseFloat(document.getElementById("machI").value) || 0;
+  const warns=[];
+  let out="";
+
+  /* --- режим термообработки (табл. 17.1) --- */
+  let temp="-", hold="-", regimeNote="", zoneS=S;
+  const row = mat.rows.find(r=> S>r.a && S<=r.b);
+  if(!row){ regimeNote="Данные не найдены."; }
+  if(row && row.none){
+    regimeNote = row.note || "";
+    if(row.same) warns.push("Стенка выходит за интервал 4–6 мм, на который в табл. 17.1 дан режим по этой стали.");
+  } else if(row){
+    temp = row.t + " °C";
+    hold = String(row.h).replace(".", ",") + " ч (не менее; допускается выше не более чем на 1 ч — прим. 3)";
+    if(row.extra) regimeNote = row.extra;
+    if(S<=10 && !mat.alloy===false){} // no-op
+  }
+
+  /* --- предупреждения формируются при подборе диапазонов ниже --- */
+
+  /* --- витки (табл. 17.5) --- */
+  let coil="";
+  if(f==="1200"){
+    const it = IT100.reduce((b,r)=> Math.abs(r.d-D)<Math.abs(b.d-D)?r:b);
+    if(machI>0 && it.i>machI) warns.push(`Строка табл. 17.6 для этой трубы требует ток сети ${it.i} А — выше входного тока вашей машины (${machI} А).`);
+    coil = `<div class="result-card"><h3>витки — ориентир табл. 17.6 (ИТ-100)</h3>
+      <div class="big-turn">${it.turns} <small>витка/витков</small></div>
+      <div class="kv" style="margin-top:10px">
+        <div class="k">Ближайшая строка таблицы</div><div class="v">Дн ${it.d} мм, стенка ${it.s} мм</div>
+        <div class="k">Сеть питания инвертора</div><div class="v">${it.u} В · ${it.i} А<sup>1</sup></div>
+      </div>
+      <div class="note">Табл. 17.6 — примеры фактических намоток под инверторы ИТ-100 при 1200 Гц. Номинальный выбор числа витков по ширинe и частоте ведётся по табл. 17.5 (вкладки 50/2400/8000 Гц).</div></div>`;
+  } else {
+    const b = pickNearest(COIL, D);
+    const gap = D>=b.d[0] && D<=b.d[1] ? null : `Диаметр ${D} мм вне диапазона табл. 17.5 (${b.d[0]}–${b.d[1]} мм) — взят ближайший диапазон.`;
+    if(gap) warns.push(gap);
+    let sub = b.s.find(x=> Math.max(x[0],2) <= S && S<=x[1]);
+    let subWarn=null;
+    if(!sub){ sub = pickNearestSub(b.s, S); subWarn=`Стенка ${S} мм вне поддиапазонов диаметра ${D} мм (даны ${b.s.map(x=>x[0]+"–"+x[1]).join(", ")} мм) — взят ближайший.`; }
+    if(subWarn) warns.push(subWarn);
+    const cfg=sub[2], fi = f==="50"?0 : f==="2400"?1:2;
+    const turns=cfg.turns[fi], mid_turns=Math.round((turns[0]+turns[1])/2);
+    const sect = cfg.sect ? cfg.sect[fi] : null;
+    const U=cfg.U[fi], I=cfg.I[fi], C=cfg.C[fi==="50"?null: fi-1];
+    /* --- проверка по параметрам машины --- */
+    const pMid = Math.round((cfg.P[0]+cfg.P[1])/2);
+    const iIn = Math.round(pMid*1000/(1.732*380));
+    if(machP>0){
+      if(cfg.P[0]>machP) warns.push(`Нагрев в этом режиме требует ${rng(cfg.P)} кВт — больше мощности машины (${machP} кВт), она не потянет. Смените частоту источника или возьмите менее тяжёлое сечение.`);
+      else if(cfg.P[1]>machP) warns.push(`Верх диапазона мощности (${cfg.P[1]} кВт) выше мощности машины (${machP} кВт) — держите режим ближе к нижней границе (${cfg.P[0]} кВт).`);
+    }
+    if(machI>0 && iIn>machI) warns.push(`Расчётный входной ток машины ≈ ${iIn} А — выше заявленного максимума (${machI} А).`);
+    coil = `<div class="result-card"><h3>витки — табл. 17.5, гибкий неохлаждаемый индуктор</h3>
+      <div class="big-turn">${rng(turns)} <small>витков · рекомендуется ${mid_turns} витков</small></div>
+      <table class="mini">
+        <tr><th>Параметр</th><th>${f} Гц</th></tr>
+        <tr><td>Ширина намотки (индуктора)</td><td>${rng(cfg.width)} мм</td></tr>
+        <tr><td>Площадь сечения витка</td><td>${sect?rng(sect):"в таблице не указано"}</td></tr>
+        <tr><td>Напряжение на выводах</td><td>${rng(U)} В</td></tr>
+        <tr><td>Рабочий ток</td><td>${rng(I)} А</td></tr>
+        <tr><td>Потребляемая мощность</td><td>${rng(cfg.P)} кВт</td></tr>
+        ${machI>0?`<tr><td>Входной ток машины (оценка, 380 В)</td><td>≈ ${iIn} А из ${machI} А</td></tr>`:""}
+        ${C?`<tr><td>Ёмкость конденсаторной батареи</td><td>${rng(C)} мкФ</td></tr>`:""}
+      </table>
+      <div class="note">Зазор между витками — 10–20 мм. На трубы 108–168 мм — одна секция на стык, на остальные — одна-две секции (примечание к табл. 17.5). Для выравнивания температуры горизонтального стыка ось индуктора смещают вниз на 1–2 витка (п. 17.4.4).</div></div>`;
+  }
+
+  /* --- время нагрева (табл. 17.3) --- */
+  let heat="";
+  if(row && !row.none){
+    if(mat.alloy){
+      let hrow=null;
+      for(const h of HEAT){ if(S<=h[0]){hrow=h; break;} }
+      if(!hrow) hrow=HEAT[HEAT.length-1];
+      const tH = f==="50" ? hrow[1] : hrow[2];
+      heat = `<div class="kv"><div class="k">Время нагрева до ${row.t} °C (минимум)</div><div class="v">${tH} мин</div>
+        <div class="k">Скорость в интервале 500–700 °C</div><div class="v">не ниже 100 °С/ч</div></div>
+        <div class="note">Цифра в таблице 17.3 — «не менее»: это минимальное время прогрева стыка по толщине стенки, а не распорядок «успеть за ${tH} минут». Фактическое время нагрева определяет машина: подниматься к температуре отпуска можно сколько угодно долго, ограничения сверху нет — главное не превысить верхнюю границу температуры и не застревать в интервале 500–700 °C (там скорость не ниже 100 °С/ч). Дано при старте с 20 °C; если греть стык сразу после сварки — реально быстрее.</div>`;
+    } else {
+      heat = `<div class="kv"><div class="k">Время нагрева</div><div class="v">не регламентируется</div></div>
+        <div class="note">Для углеродистых сталей длительность нагрева РД 17.4.2 не задаёт; контролируется выход на температуру отпуска.</div>`;
+    }
+  }
+
+  /* --- зона нагрева (п. 17.4.1) --- */
+  let zone="";
+  if(row && !row.none){
+    const z = Math.ceil(1.3*Math.sqrt((D-S)*S)), zmin = 4*S;
+    const zoneW = Math.max(z, zmin);
+    let iso="";
+    if(D<200) iso="изоляция: 200–250 мм в каждую сторону от шва, толщина изоляции 8–12 мм";
+    else if(D<400) iso="изоляция: 300–400 мм в каждую сторону, толщина изоляции 8–12 мм";
+    else iso="изоляция: 500–700 мм в каждую сторону, толщина изоляции 15–20 мм";
+    zone = `<div class="result-card"><h3>зона нагрева и изоляция (п. 17.4.1, 17.4.4)</h3>
+      <div class="kv">
+        <div class="k">Ширина зоны равномерного нагрева</div><div class="v">не менее ${zoneW} мм</div>
+        <div class="k">Теплоизоляция</div><div class="v">${iso}</div>
+      </div>
+      <div class="note">Ширина считается по формуле 1,3·√((Дн−S)·S), но не менее 4S. Если узел не даёт полную ширину — допускается минус 20 % к ширине с увеличением выдержки на 1 ч (примечание к п. 17.4.1).</div></div>`;
+  }
+
+  /* --- охлаждение --- */
+  let cool="";
+  if(row && !row.none){
+    const coolRate = parseFloat(document.getElementById("coolRate").value) || 0;
+    let coolTime="";
+    if(coolRate>0){
+      const tLow = parseInt(row.t.match(/\d+/)[0]); /* нижняя граница температуры отпуска */
+      const h = (tLow-300)/coolRate;
+      coolTime = h>=1
+        ? Math.floor(h)+" ч "+Math.round((h-Math.floor(h))*60)+" мин"
+        : Math.max(Math.round(h*60),1)+" мин";
+    }
+    cool = `<div class="result-card"><h3>охлаждение (табл. 17.1, прим. 2)</h3>
+      ${coolTime?`<div class="kv"><div class="k">Время охлаждения до 300 °C при ${coolRate} °С/ч</div><div class="v big">${coolTime}</div></div>`:""}
+      <div class="kv"><div class="k">До 300 °C</div><div class="v">не снимая нагреватель, под слоем изоляции</div>
+      <div class="k">После 300 °C</div><div class="v">на спокойном воздухе</div></div>
+      <div class="note">При отрицательных температурах воздуха — под слоем теплоизоляции до полного остывания.</div></div>`;
+    if(regimeNote && row.a<=10 && mat.id!=="carb"){}
+  }
+
+  /* --- режим --- */
+  const regime = `<div class="result-card"><h3>режим термообработки — табл. 17.1</h3>
+    ${ row && !row.none ? `<div class="kv">
+      <div class="k">Температура отпуска</div><div class="v big">${temp}</div>
+      <div class="k">Длительность выдержки</div><div class="v">${hold}</div>
+    </div>${regimeNote?`<div class="note">${regimeNote}</div>`:""}`
+    : `<div class="kv"><div class="k">Термообработка</div><div class="v">по табл. 17.1 не назначается</div></div>${regimeNote?`<div class="note">${regimeNote}</div>`:""}`}
+  </div>`;
+
+  /* --- сборка --- */
+  const warnHtml = warns.length? `<div class="warnings">${warns.map(w=>`<div class="warn">⚠ ${w}</div>`).join("")}</div>` : "";
+  out = warnHtml + coil + regime + (heat?`<div class="result-card"><h3>нагрев — табл. 17.3</h3>${heat}</div>`:"") + zone + cool;
+  const box = document.getElementById("out");
+  box.classList.remove("warn");
+  box.innerHTML = out;
+
+  /* подсказка под формой */
+  document.getElementById("matHint").textContent = mat.label;
+}
+
+
+/* ================= ИНИЦИАЛИЗАЦИЯ ================= */
+(function init(){
+  const sel = document.getElementById("mat");
+  const groups=[...new Set(MATS.map(m=>m.group))];
+  for(const g of groups){
+    const og=document.createElement("optgroup"); og.label=g;
+    MATS.filter(m=>m.group===g).forEach(m=>{
+      const o=document.createElement("option"); o.value=m.id; o.textContent=m.label; og.appendChild(o);
+    });
+    sel.appendChild(og);
+  }
+  sel.value="kmm";
+  document.getElementById("freq").addEventListener("click", e=>{
+    if(e.target.tagName!=="BUTTON")return;
+    [...document.getElementById("freq").children].forEach(b=>b.classList.remove("on"));
+    e.target.classList.add("on"); compute();
+  });
+  ["mat","dia","wal","machP","machI","coolRate"].forEach(id=>{
+    document.getElementById(id).addEventListener("input", compute);
+    document.getElementById(id).addEventListener("change", compute);
+  });
+  compute();
+})();
+</script>
+
+</body>
+</html>
