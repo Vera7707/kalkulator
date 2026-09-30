@@ -109,6 +109,10 @@ footer{margin-top:26px; font-size:.8rem; color:var(--muted); border-top:1px soli
     </div>
     <div class="hint">Вставлены параметры вашей машины термообработки (отжига): 50 кВт, входной ток 100 А. Если поменяете машину — поправьте числа здесь.</div>
 
+    <label for="coolRate">Скорость охлаждения (по техкарте), °С/ч</label>
+    <input type="number" id="coolRate" min="10" max="2000" step="10" placeholder="оставьте пустым, если не задана">
+    <div class="hint">РД скорость охлаждения в градусах в час не задаёт — её вписывает технолог в техкарте (форма П27). Если число задано, калькулятор посчитает время охлаждения до 300 °C.</div>
+
     <label>Частота тока источника</label>
     <div class="freq" id="freq">
       <button data-f="50" class="on">50 Гц</button>
@@ -352,9 +356,9 @@ function compute(){
       for(const h of HEAT){ if(S<=h[0]){hrow=h; break;} }
       if(!hrow) hrow=HEAT[HEAT.length-1];
       const tH = f==="50" ? hrow[1] : hrow[2];
-      heat = `<div class="kv"><div class="k">Время нагрева до ${row.t} °C</div><div class="v">${tH} мин</div>
+      heat = `<div class="kv"><div class="k">Время нагрева до ${row.t} °C (минимум)</div><div class="v">${tH} мин</div>
         <div class="k">Скорость в интервале 500–700 °C</div><div class="v">не ниже 100 °С/ч</div></div>
-        <div class="note">Дано при начальной температуре стыка 20 °C (табл. 17.3); если нагрев сразу после сварки — короче. Углеродистым сталям время нагрева не регламентируется.<br>Скорость в таблице 17.3 указана для хромомолибденовых и хромомолибденованадиевых сталей.</div>`;
+        <div class="note">Цифра в таблице 17.3 — «не менее»: это минимальное время прогрева стыка по толщине стенки, а не распорядок «успеть за ${tH} минут». Фактическое время нагрева определяет машина: подниматься к температуре отпуска можно сколько угодно долго, ограничения сверху нет — главное не превысить верхнюю границу температуры и не застревать в интервале 500–700 °C (там скорость не ниже 100 °С/ч). Дано при старте с 20 °C; если греть стык сразу после сварки — реально быстрее.</div>`;
     } else {
       heat = `<div class="kv"><div class="k">Время нагрева</div><div class="v">не регламентируется</div></div>
         <div class="note">Для углеродистых сталей длительность нагрева РД 17.4.2 не задаёт; контролируется выход на температуру отпуска.</div>`;
@@ -381,7 +385,17 @@ function compute(){
   /* --- охлаждение --- */
   let cool="";
   if(row && !row.none){
+    const coolRate = parseFloat(document.getElementById("coolRate").value) || 0;
+    let coolTime="";
+    if(coolRate>0){
+      const tLow = parseInt(row.t.match(/\d+/)[0]); /* нижняя граница температуры отпуска */
+      const h = (tLow-300)/coolRate;
+      coolTime = h>=1
+        ? Math.floor(h)+" ч "+Math.round((h-Math.floor(h))*60)+" мин"
+        : Math.max(Math.round(h*60),1)+" мин";
+    }
     cool = `<div class="result-card"><h3>охлаждение (табл. 17.1, прим. 2)</h3>
+      ${coolTime?`<div class="kv"><div class="k">Время охлаждения до 300 °C при ${coolRate} °С/ч</div><div class="v big">${coolTime}</div></div>`:""}
       <div class="kv"><div class="k">До 300 °C</div><div class="v">не снимая нагреватель, под слоем изоляции</div>
       <div class="k">После 300 °C</div><div class="v">на спокойном воздухе</div></div>
       <div class="note">При отрицательных температурах воздуха — под слоем теплоизоляции до полного остывания.</div></div>`;
@@ -426,7 +440,7 @@ function compute(){
     [...document.getElementById("freq").children].forEach(b=>b.classList.remove("on"));
     e.target.classList.add("on"); compute();
   });
-  ["mat","dia","wal","machP","machI"].forEach(id=>{
+  ["mat","dia","wal","machP","machI","coolRate"].forEach(id=>{
     document.getElementById(id).addEventListener("input", compute);
     document.getElementById(id).addEventListener("change", compute);
   });
