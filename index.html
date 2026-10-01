@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Калькулятор индукционной термообработки труб</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%231e3a5f'/%3E%3Ccircle cx='50' cy='50' r='27' fill='none' stroke='%23b45309' stroke-width='7'/%3E%3Ccircle cx='50' cy='50' r='12' fill='none' stroke='%23b45309' stroke-width='5'/%3E%3C/svg%3E">
 <style>
 :root{
   --bg:#eef1f5; --panel:#ffffff; --ink:#1d2b3a; --muted:#5d6b7a;
@@ -43,6 +44,8 @@ select:focus,input:focus{outline:2px solid var(--steel-2); outline-offset:0;}
 .kv .k{color:var(--muted);}
 .kv .v{font-weight:600; text-align:right;}
 .kv .v.big{font-size:1.15rem; color:var(--accent);}
+.pt{font-weight:700; color:var(--steel); font-size:.9rem; margin:14px 0 6px; padding-top:10px; border-top:1px dashed var(--line);}
+.result-card .pt:first-of-type{border-top:none; padding-top:0; margin-top:4px;}
 @media(max-width:520px){.kv{grid-template-columns:1fr;} .kv .v{text-align:left;}}
 .big-turn{
   font-size:2.2rem; font-weight:700; color:var(--accent); line-height:1.1;
@@ -108,10 +111,6 @@ footer{margin-top:26px; font-size:.8rem; color:var(--muted); border-top:1px soli
       </div>
     </div>
     <div class="hint">Вставлены параметры вашей машины термообработки (отжига): 50 кВт, входной ток 100 А. Если поменяете машину — поправьте числа здесь.</div>
-
-    <label for="coolRate">Скорость охлаждения (по техкарте), °С/ч</label>
-    <input type="number" id="coolRate" min="10" max="2000" step="10" placeholder="оставьте пустым, если не задана">
-    <div class="hint">РД скорость охлаждения в градусах в час не задаёт — её вписывает технолог в техкарте (форма П27). Если число задано, калькулятор посчитает время охлаждения до 300 °C.</div>
 
     <label>Частота тока источника</label>
     <div class="freq" id="freq">
@@ -285,18 +284,71 @@ function compute(){
   const warns=[];
   let out="";
 
-  /* --- режим термообработки (табл. 17.1) --- */
-  let temp="-", hold="-", regimeNote="", zoneS=S;
+  /* --- режим по пунктам: 1 нагрев, 2 выдержка, 3 охлаждение (табл. 17.1 + 17.3 + прим. 2, 7) --- */
+  let mode="";
   const row = mat.rows.find(r=> S>r.a && S<=r.b);
-  if(!row){ regimeNote="Данные не найдены."; }
+  if(!row){
+    mode = `<div class="result-card"><h3>режим для машины — по пунктам</h3>
+      <div class="kv"><div class="k">Статус</div><div class="v">данные не найдены</div></div></div>`;
+  }
   if(row && row.none){
-    regimeNote = row.note || "";
+    mode = `<div class="result-card"><h3>режим для машины — по пунктам</h3>
+      <div class="kv"><div class="k">Термообработка</div><div class="v">по табл. 17.1 не назначается</div></div>
+      <div class="note">${row.note||"Данные не найдены."}</div></div>`;
     if(row.same) warns.push("Стенка выходит за интервал 4–6 мм, на который в табл. 17.1 дан режим по этой стали.");
-  } else if(row){
-    temp = row.t + " °C";
-    hold = String(row.h).replace(".", ",") + " ч (не менее; допускается выше не более чем на 1 ч — прим. 3)";
-    if(row.extra) regimeNote = row.extra;
-    if(S<=10 && !mat.alloy===false){} // no-op
+  } else if(row && !row.none){
+    const tLow = parseInt(row.t.match(/\d+/)[0]); /* нижняя граница температуры отпуска */
+    const holdMin = Math.round(row.h*60);
+    const fmt = hh => { const m = Math.max(Math.round(hh*60),0); return Math.floor(m/60)+" ч "+String(m%60).padStart(2,"0")+" мин"; };
+
+    /* пункт 1 — нагрев */
+    let p1 = `<div class="kv"><div class="k">До какой температуры греть</div><div class="v big">${row.t} °C</div>`;
+    let p1note = "";
+    if(mat.id==="cifb"){
+      p1 += `<div class="k">Скорость нагрева (прим. 7 к табл. 17.1)</div><div class="v">не быстрее 200 °С/ч</div></div>`;
+      p1note = "В интервале 600–700 °C не застревать: скорость там должна быть не ниже 100 °С/ч (прим. 7). При 200 °С/ч с отметки 20 °C стык выйдет на режим за ≈ "+fmt((tLow-20)/200)+".";
+    } else if(mat.alloy){
+      let hrow=null;
+      for(const hh of HEAT){ if(S<=hh[0]){hrow=hh; break;} }
+      if(!hrow) hrow=HEAT[HEAT.length-1];
+      const tHF = f==="50" ? hrow[1] : hrow[2];
+      p1 += `<div class="k">Скорость нагрева сверху</div><div class="v">РД не ограничивает</div>
+        <div class="k">Время нагрева, табл. 17.3 (не менее) — ${f==="50"?"50 Гц":"средняя частота"}</div><div class="v">${tHF} мин</div>
+        <div class="k">Время нагрева при 100–200 °С/ч (расчёт с 20 °C)</div><div class="v">${fmt((tLow-20)/200)}–${fmt((tLow-20)/100)}</div></div>`;
+      p1note = "«Не менее» в табл. 17.3 — это нижняя граница прогрева по толщине стенки, а не план «успеть за "+tHF+" мин». В интервале 500–700 °C держите не медленнее 100 °С/ч (норма для ванадиевых сталей — прим. к табл. 17.3). Дано при старте с 20 °C: стык сразу после сварки греется быстрее.";
+    } else {
+      p1 += `<div class="k">Скорость и время нагрева</div><div class="v">не регламентируются (п. 17.4.2)</div></div>`;
+      p1note = "Для углеродистых сталей контролируется выход на температуру отпуска; темп подъёма определяет технология.";
+    }
+
+    /* пункт 2 — выдержка */
+    const p2 = `<div class="kv">
+      <div class="k">При какой температуре держать</div><div class="v">${row.t} °C</div>
+      <div class="k">Выдержка — ставить на машине</div><div class="v big">${holdMin} мин</div>
+      <div class="k">В часах по табл. 17.1</div><div class="v">${String(row.h).replace(".", ",")} ч (не менее)</div></div>
+      <div class="note">Вверх — допускается не более чем на 1 ч (прим. 3). При вынужденных перерывах засчитывается суммарное время стыка при температуре обработки.${row.extra?` ${row.extra}`:""}</div>`;
+
+    /* пункт 3 — охлаждение: скорость берём из расчёта, вопрос со ввода снят */
+    const coolRow = r => `<tr><td>${r} °С/ч (для акта ≈ ${(r/60).toFixed(1).replace(".", ",")} °С/мин)</td><td>${fmt((tLow-300)/r)}</td></tr>`;
+    const p3 = `<div class="kv">
+      <div class="k">До 300 °C</div><div class="v">не снимая нагревателя, под слоем изоляции (прим. 2)</div>
+      <div class="k">После 300 °C</div><div class="v">на спокойном воздухе</div></div>
+      <table class="mini">
+        <tr><th>Скорость (число для техкарты/акта)</th><th>Время остывания с ${tLow} до 300 °C</th></tr>
+        ${coolRow(200)}${coolRow(150)}${coolRow(100)}
+      </table>
+      <div class="note">Числовую скорость охлаждения РД не задаёт — число вписывает технология работ (в акте, форма П27.9, единицы °С/мин; калькулятор пересчитал °С/ч в °С/мин сам). Быстрее верхней строки разгонять не нужно, медленнее под изоляцией не запрещено. При отрицательных температурах воздуха — под слоем теплоизоляции до полного остывания. После 300 °C температуру можно не записывать (п. 21.18).</div>`;
+
+    mode = `<div class="result-card">
+      <h3>режим для машины — по пунктам</h3>
+      <div class="pt">Пункт 1 — нагрев: какую скорость и до скольки градусов</div>
+      ${p1}
+      <div class="note" style="margin-bottom:0">${p1note}</div>
+      <div class="pt" style="margin-top:14px">Пункт 2 — выдержка: сколько минут держать</div>
+      ${p2}
+      <div class="pt" style="margin-top:14px">Пункт 3 — охлаждение: сколько градусов в час</div>
+      ${p3}
+    </div>`;
   }
 
   /* --- предупреждения формируются при подборе диапазонов ниже --- */
@@ -348,23 +400,6 @@ function compute(){
       <div class="note">Зазор между витками — 10–20 мм. На трубы 108–168 мм — одна секция на стык, на остальные — одна-две секции (примечание к табл. 17.5). Для выравнивания температуры горизонтального стыка ось индуктора смещают вниз на 1–2 витка (п. 17.4.4).</div></div>`;
   }
 
-  /* --- время нагрева (табл. 17.3) --- */
-  let heat="";
-  if(row && !row.none){
-    if(mat.alloy){
-      let hrow=null;
-      for(const h of HEAT){ if(S<=h[0]){hrow=h; break;} }
-      if(!hrow) hrow=HEAT[HEAT.length-1];
-      const tH = f==="50" ? hrow[1] : hrow[2];
-      heat = `<div class="kv"><div class="k">Время нагрева до ${row.t} °C (минимум)</div><div class="v">${tH} мин</div>
-        <div class="k">Скорость в интервале 500–700 °C</div><div class="v">не ниже 100 °С/ч</div></div>
-        <div class="note">Цифра в таблице 17.3 — «не менее»: это минимальное время прогрева стыка по толщине стенки, а не распорядок «успеть за ${tH} минут». Фактическое время нагрева определяет машина: подниматься к температуре отпуска можно сколько угодно долго, ограничения сверху нет — главное не превысить верхнюю границу температуры и не застревать в интервале 500–700 °C (там скорость не ниже 100 °С/ч). Дано при старте с 20 °C; если греть стык сразу после сварки — реально быстрее.</div>`;
-    } else {
-      heat = `<div class="kv"><div class="k">Время нагрева</div><div class="v">не регламентируется</div></div>
-        <div class="note">Для углеродистых сталей длительность нагрева РД 17.4.2 не задаёт; контролируется выход на температуру отпуска.</div>`;
-    }
-  }
-
   /* --- зона нагрева (п. 17.4.1) --- */
   let zone="";
   if(row && !row.none){
@@ -382,38 +417,9 @@ function compute(){
       <div class="note">Ширина считается по формуле 1,3·√((Дн−S)·S), но не менее 4S. Если узел не даёт полную ширину — допускается минус 20 % к ширине с увеличением выдержки на 1 ч (примечание к п. 17.4.1).</div></div>`;
   }
 
-  /* --- охлаждение --- */
-  let cool="";
-  if(row && !row.none){
-    const coolRate = parseFloat(document.getElementById("coolRate").value) || 0;
-    let coolTime="";
-    if(coolRate>0){
-      const tLow = parseInt(row.t.match(/\d+/)[0]); /* нижняя граница температуры отпуска */
-      const h = (tLow-300)/coolRate;
-      coolTime = h>=1
-        ? Math.floor(h)+" ч "+Math.round((h-Math.floor(h))*60)+" мин"
-        : Math.max(Math.round(h*60),1)+" мин";
-    }
-    cool = `<div class="result-card"><h3>охлаждение (табл. 17.1, прим. 2)</h3>
-      ${coolTime?`<div class="kv"><div class="k">Время охлаждения до 300 °C при ${coolRate} °С/ч</div><div class="v big">${coolTime}</div></div>`:""}
-      <div class="kv"><div class="k">До 300 °C</div><div class="v">не снимая нагреватель, под слоем изоляции</div>
-      <div class="k">После 300 °C</div><div class="v">на спокойном воздухе</div></div>
-      <div class="note">При отрицательных температурах воздуха — под слоем теплоизоляции до полного остывания.</div></div>`;
-    if(regimeNote && row.a<=10 && mat.id!=="carb"){}
-  }
-
-  /* --- режим --- */
-  const regime = `<div class="result-card"><h3>режим термообработки — табл. 17.1</h3>
-    ${ row && !row.none ? `<div class="kv">
-      <div class="k">Температура отпуска</div><div class="v big">${temp}</div>
-      <div class="k">Длительность выдержки</div><div class="v">${hold}</div>
-    </div>${regimeNote?`<div class="note">${regimeNote}</div>`:""}`
-    : `<div class="kv"><div class="k">Термообработка</div><div class="v">по табл. 17.1 не назначается</div></div>${regimeNote?`<div class="note">${regimeNote}</div>`:""}`}
-  </div>`;
-
   /* --- сборка --- */
   const warnHtml = warns.length? `<div class="warnings">${warns.map(w=>`<div class="warn">⚠ ${w}</div>`).join("")}</div>` : "";
-  out = warnHtml + coil + regime + (heat?`<div class="result-card"><h3>нагрев — табл. 17.3</h3>${heat}</div>`:"") + zone + cool;
+  out = warnHtml + coil + mode + zone;
   const box = document.getElementById("out");
   box.classList.remove("warn");
   box.innerHTML = out;
@@ -440,7 +446,7 @@ function compute(){
     [...document.getElementById("freq").children].forEach(b=>b.classList.remove("on"));
     e.target.classList.add("on"); compute();
   });
-  ["mat","dia","wal","machP","machI","coolRate"].forEach(id=>{
+  ["mat","dia","wal","machP","machI"].forEach(id=>{
     document.getElementById(id).addEventListener("input", compute);
     document.getElementById(id).addEventListener("change", compute);
   });
